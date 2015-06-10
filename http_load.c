@@ -181,7 +181,7 @@ int total_timeouts, total_badbytes, total_badchecksums;
 typedef struct {
     int         nelts;
     int         nalloc;
-    long long  *times; /* first response time.*/
+    long long  *times; /* first response time. usec*/
 } stats_t;
 
 static stats_t stats;
@@ -1732,8 +1732,7 @@ close_connection( int cnum )
 	    {
 	    if ( connections[cnum].bytes != urls[url_num].bytes )
 		{
-		(void) fprintf(
-		    stderr, "%s: byte count wrong\n", urls[url_num].url_str );
+		/*(void) fprintf( stderr, "%s: byte count wrong\n", urls[url_num].url_str );*/
 		++total_badbytes;
 		}
 	    }
@@ -1904,7 +1903,7 @@ stats_push(long long msec)
 static void
 stats_sort()
 {
-    qsort(stats.times, stats.nelts-1, sizeof(long long), stats_sort_cmp);
+    qsort(stats.times, stats.nelts, sizeof(long long), stats_sort_cmp);
 }
 
 static int
@@ -1924,6 +1923,7 @@ static void
 stats_print_info()
 {
     int i = 0;
+    int n = stats.nelts - 1;
 
     stats_sort();
 
@@ -1932,11 +1932,11 @@ stats_print_info()
         if (percs[i] <= 0) {
             printf("0%%  <0> (never)\n");
         } else if (percs[i] >= 100) {
-            printf(" 100%%   %lld (longest request)\n",
-                    stats.times[stats.nelts-1]);
+            printf(" 100%%\t%lld (longest request)\n",
+                    stats.times[n]/1000L);
         } else {
-            printf(" %d%%   %lld (longest request)\n",
-                    percs[i], stats.times[(stats.nelts-1) * percs[i]/100]);
+            printf(" %d%%\t%lld\n",
+                    percs[i], stats.times[n * percs[i]/100]/1000L);
         }
     }
 }
