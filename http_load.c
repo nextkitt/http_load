@@ -177,6 +177,17 @@ static long long total_connect_usecs, max_connect_usecs, min_connect_usecs;
 static long long total_response_usecs, max_response_usecs, min_response_usecs;
 int total_timeouts, total_badbytes, total_badchecksums;
 
+/* -------- */
+typedef struct {
+    int         nelts;
+    int         nalloc;
+    long long  *times; /* first response time.*/
+} stats_t;
+
+static stats_t stats;
+static int percs[] = {50, 66, 75, 80, 90, 95, 98, 99, 100};
+/* -------- */
+
 static long start_interval, low_interval, high_interval, range_interval;
 
 #ifdef USE_SSL
@@ -205,6 +216,11 @@ static void* malloc_check( size_t size );
 static void* realloc_check( void* ptr, size_t size );
 static char* strdup_check( char* str );
 static void check( void* ptr );
+static void stats_new(int n);
+static void stats_push(long long msec);
+static void stats_sort();
+static int stats_sort_cmp(const void *p1, const void *p2);
+static void stats_print_info();
 
 
 int
@@ -386,6 +402,8 @@ main( int argc, char** argv )
     for ( cnum = 0; cnum < max_connections; ++cnum )
 	connections[cnum].conn_state = CNST_FREE;
     num_connections = max_parallel = 0;
+
+    stats_new(max_connections);
 
     /* Initialize the HTTP status-code histogram. */
     for ( i = 0; i < 1000; ++i )
@@ -1680,6 +1698,7 @@ close_connection( int cnum )
 	max_response_usecs = max( max_response_usecs, response_usecs );
 	min_response_usecs = min( min_response_usecs, response_usecs );
 	++responses_completed;
+    stats_push(response_usecs);
 	}
     if ( connections[cnum].http_status >= 0 && connections[cnum].http_status <= 999 )
 	++http_status_counts[connections[cnum].http_status];
@@ -1809,6 +1828,9 @@ finish( struct timeval* nowP )
     if ( ssl_ctx != (SSL_CTX*) 0 )
 	SSL_CTX_free( ssl_ctx );
 #endif
+
+    stats_print_info();
+
     exit( 0 );
     }
 
@@ -1826,6 +1848,7 @@ static void*
 malloc_check( size_t size )
     {
     void* ptr = malloc( size );
+    memset(ptr, 0, size);
     check( ptr );
     return ptr;
     }
@@ -1858,3 +1881,62 @@ check( void* ptr )
 	exit( 1 );
 	}
     }
+
+
+static void
+stats_new(int n)
+{
+    stats.nelts = 0;
+    stats.nalloc = n;
+    stats.times = malloc_check(stats.nalloc * sizeof(long long));
+}
+
+static void
+stats_push(long long msec)
+{
+    if (stats.nelts > stats.nalloc) {
+        stats.nalloc *= 2;
+        stats.times = realloc_check((void*)stats.times, stats.nalloc * sizeof(long long));
+    }
+    stats.times[stats.nelts++] = msec;
+}
+
+static void
+stats_sort()
+{
+    qsort(stats.times, stats.nelts-1, sizeof(long long), stats_sort_cmp);
+}
+
+static int
+stats_sort_cmp(const void *p1, const void *p2)
+{
+    long long a = *((long long*)p1);
+    long long b = *((long long*)p2);
+    if (a > b) {
+        return 1;
+    } else if (a == b) {
+        return 0;
+    }
+    return -1;
+}
+
+static void
+stats_print_info()
+{
+    int i = 0;
+
+    stats_sort();
+
+    printf("\nPercentage of the requests served within a certain time (ms)\n");
+    for (i = 0; i < sizeof(percs) / sizeof(int); i++) {
+        if (percs[i] <= 0) {
+            printf("0%%  <0> (never)\n");
+        } else if (percs[i] >= 100) {
+            printf(" 100%%   %lld (longest request)\n",
+                    stats.times[stats.nelts-1]);
+        } else {
+            printf(" %d%%   %lld (longest request)\n",
+                    percs[i], stats.times[(stats.nelts-1) * percs[i]/100]);
+        }
+    }
+}
