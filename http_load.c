@@ -65,7 +65,7 @@
 #define THROTTLE 3360
 
 /* How often to show progress reports. */
-#define PROGRESS_SECS 60
+#define PROGRESS_SECS 10
 
 /* How many file descriptors to not use. */
 #define RESERVED_FDS 3
@@ -216,11 +216,12 @@ static void* malloc_check( size_t size );
 static void* realloc_check( void* ptr, size_t size );
 static char* strdup_check( char* str );
 static void check( void* ptr );
+
 static void stats_new(int n);
 static void stats_push(long long msec);
-static void stats_sort();
+static void stats_sort(void);
 static int stats_sort_cmp(const void *p1, const void *p2);
-static void stats_print_info();
+static void stats_print_info(void);
 
 
 int
@@ -1776,6 +1777,7 @@ finish( struct timeval* nowP )
     float elapsed;
     int i;
 
+    printf("Finished %d requests\n", fetches_completed);
     /* Report statistics. */
     elapsed = delta_timeval( &start_at, nowP ) / 1000000.0;
     (void) printf(
@@ -1901,7 +1903,7 @@ stats_push(long long msec)
 }
 
 static void
-stats_sort()
+stats_sort(void)
 {
     qsort(stats.times, stats.nelts, sizeof(long long), stats_sort_cmp);
 }
@@ -1909,8 +1911,8 @@ stats_sort()
 static int
 stats_sort_cmp(const void *p1, const void *p2)
 {
-    long long a = *((long long*)p1);
-    long long b = *((long long*)p2);
+    long long a = *((const long long*)p1);
+    long long b = *((const long long*)p2);
     if (a > b) {
         return 1;
     } else if (a == b) {
@@ -1920,7 +1922,7 @@ stats_sort_cmp(const void *p1, const void *p2)
 }
 
 static void
-stats_print_info()
+stats_print_info(void)
 {
     int i = 0;
     int n = stats.nelts - 1;
@@ -1932,11 +1934,11 @@ stats_print_info()
         if (percs[i] <= 0) {
             printf("0%%  <0> (never)\n");
         } else if (percs[i] >= 100) {
-            printf(" 100%%\t%lld (longest request)\n",
-                    stats.times[n]/1000L);
+            printf(" 100%%\t%0.2f (longest request)\n",
+                    stats.times[n]/1000.0);
         } else {
-            printf(" %d%%\t%lld\n",
-                    percs[i], stats.times[n * percs[i]/100]/1000L);
+            printf(" %d%%\t%0.2f\n",
+                    percs[i], stats.times[n * percs[i]/100]/1000.0);
         }
     }
 }
