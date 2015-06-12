@@ -1893,7 +1893,7 @@ stats_new(int n)
 static void
 stats_push(long long msec)
 {
-    if (stats.nelts > stats.nalloc) {
+    if (stats.nelts >= stats.nalloc) {
         stats.nalloc *= 2;
         stats.times = realloc_check((void*)stats.times, stats.nalloc * sizeof(long long));
     }
