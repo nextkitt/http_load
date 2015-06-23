@@ -65,7 +65,7 @@
 #define THROTTLE 3360
 
 /* How often to show progress reports. */
-#define PROGRESS_SECS 10
+#define PROGRESS_SECS 60
 
 /* How many file descriptors to not use. */
 #define RESERVED_FDS 3
@@ -1889,7 +1889,7 @@ stats_new(int n)
 {
     stats.nelts = 0;
     stats.nalloc = n;
-    stats.times = malloc_check(stats.nalloc * sizeof(long long));
+    stats.times = (long long *)malloc_check(stats.nalloc * sizeof(long long));
 }
 
 static void
@@ -1897,7 +1897,7 @@ stats_push(long long msec)
 {
     if (stats.nelts >= stats.nalloc) {
         stats.nalloc *= 2;
-        stats.times = realloc_check((void*)stats.times, stats.nalloc * sizeof(long long));
+        stats.times = (long long *)realloc_check((void*)stats.times, stats.nalloc * sizeof(long long));
     }
     stats.times[stats.nelts++] = msec;
 }
